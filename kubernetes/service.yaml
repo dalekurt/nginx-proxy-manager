@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: npm
+  namespace: npm
+spec:
+  selector:
+    app: nginx-proxy-manager
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+    - port: 81
+      targetPort: 81
+      name: npm-console
+    - port: 443
+      targetPort: 443
+      name: https
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: npm
+  labels:
+    app: db
+spec:
+  ports:
+  - port: 3306
+    protocol: TCP
+  selector:
+    app: nginx-proxy-manager
