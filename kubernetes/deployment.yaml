@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-proxy-manager
+  name: nginx-proxy-manager
+  namespace: npm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-proxy-manager
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: nginx-proxy-manager
+    spec:
+      initContainers:
+        - name: copy-npm-config
+          image: busybox
+          command: ['sh', '-c', 'cp -rp /tmp/production.json /app/config/production.json']
+          volumeMounts:
+          - name: tmp-volume
+            mountPath: /tmp/production.json
+            subPath: production.json
+          - name: npm-config-volume
+            mountPath: /app/config
+            
+      containers:
+      - image: jc21/nginx-proxy-manager:latest
+        name: nginx-proxy-manager
+        resources:
+          limits:
+            cpu: 100m
+            memory: 400M
+          requests:
+            cpu: 50m
+            memory: 200M
+        ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 443
+          name: https
+        - containerPort: 81
+          name: npm-console
+        volumeMounts:
+        - mountPath: /data
+          name: data-volume
+        - mountPath: /etc/letencrypt
+          name: letsencrypt-volume
+        - mountPath: /app/config/production.json
+          subPath: production.json
+          name: npm-config-volume
+          readOnly: false
+        # - mountPath: /tmp/production.json
+        #   subPath: production.json
+        #   name: tmp-volume
+        #   readOnly: false
+
+      - image: mariadb:10.4.17
+        name: db
+        resources:
+          limits:
+            cpu: 100m
+            memory: 400M
+          requests:
+            cpu: 50m
+            memory: 200M
+        ports:
+        - containerPort: 3306
+          name: db
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "npm"
+        - name: MYSQL_DATABASE
+          value: "npm"
+        - name: MYSQL_USER
+          value: "npm"
+        - name: MYSQL_PASSWORD
+          value: "npm"
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-volume
+      volumes:
+      - name: data-volume
+        emptyDir: {}
+      - name: letsencrypt-volume
+        emptyDir: {}
+      - name: mysql-volume
+        emptyDir: {}
+      - name: npm-config-volume
+        emptyDir: {}
+      - name: tmp-volume
+        configMap:
+          name: npm-config
+          items:
+          - key: template-production.json
+            path: production.json
+            mode: 0666
+
